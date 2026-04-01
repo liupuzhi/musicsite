@@ -529,6 +529,50 @@ const PLAYLIST = [
     .cover-wrap { width: min(240px, 70vw); }
   }
 
+  /* Guest unlock overlay */
+  #guest-unlock {
+    position: fixed;
+    inset: 0;
+    background: rgba(12,12,14,0.85);
+    backdrop-filter: blur(12px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 15;
+  }
+  #guest-unlock.visible { display: flex; }
+  .unlock-card {
+    text-align: center;
+    padding: 48px 40px;
+  }
+  .unlock-title {
+    font-family: 'Lora', serif;
+    font-style: italic;
+    font-size: 1.6rem;
+    color: var(--gold);
+    margin-bottom: 8px;
+  }
+  .unlock-sub {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+    margin-bottom: 32px;
+  }
+  .btn-unlock {
+    padding: 16px 40px;
+    background: var(--gold);
+    color: var(--bg);
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.85rem;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-unlock:hover { background: #d4b87a; transform: scale(1.03); }
+
   /* Loading screen */
   #loading-screen {
     position: fixed;
@@ -555,6 +599,15 @@ const PLAYLIST = [
 </style>
 </head>
 <body>
+
+<!-- Guest unlock overlay -->
+<div id="guest-unlock">
+  <div class="unlock-card">
+    <div class="unlock-title">准备好了吗</div>
+    <div class="unlock-sub">点击后将与对方同步播放</div>
+    <button class="btn-unlock" onclick="unlockGuest()">开始收听 ♪</button>
+  </div>
+</div>
 
 <!-- Loading -->
 <div id="loading-screen">
@@ -763,6 +816,18 @@ function enterRoom(code, asHost) {
   }
 }
 
+let pendingState = null;  // store state received before user interaction
+
+function unlockGuest() {
+  document.getElementById('guest-unlock').classList.remove('visible');
+  // Touch audio to unlock autoplay
+  audio.play().then(() => audio.pause()).catch(() => {});
+  if (pendingState) {
+    syncFromState(pendingState);
+    pendingState = null;
+  }
+}
+
 // ════════════════════════════════════════
 //  Firebase Sync
 // ════════════════════════════════════════
@@ -771,10 +836,16 @@ function setupSync() {
 
   // Host pushes state; Guest listens
   if (!isHost) {
+    document.getElementById('guest-unlock').classList.add('visible');
     roomRef.on('value', snap => {
       const state = snap.val();
       if (!state) return;
-      syncFromState(state);
+      // If user hasn't interacted yet, store state for later
+      if (document.getElementById('guest-unlock').classList.contains('visible')) {
+        pendingState = state;
+      } else {
+        syncFromState(state);
+      }
     });
   }
 
