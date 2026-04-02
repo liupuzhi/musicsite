@@ -823,14 +823,28 @@ const PLAYLIST = [
   }
   #chat-drawer.open { display: block; }
   #chat-drawer .drawer-sheet {
-    max-height: 80vh;
-    height: 80vh;
+    max-height: 82vh;
+    height: 82vh;
+    display: flex;
+    flex-direction: column;
   }
   .chat-drawer-body {
     flex: 1;
     display: flex;
     flex-direction: column;
+    min-height: 0;
     overflow: hidden;
+  }
+  #chat-drawer .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    padding: 12px 12px 8px;
+  }
+  #chat-drawer .chat-input-row {
+    flex-shrink: 0;
+    padding: 10px 12px 20px;
+    border-top: 1px solid var(--border);
   }
 
   /* Guest unlock overlay */
@@ -1230,9 +1244,8 @@ function unlockGuest() {
   if (pendingState) {
     syncFromState(pendingState);
     pendingState = null;
-  }
-  // Also re-fetch latest state in case Firebase already fired
-  if (roomRef) {
+  } else if (roomRef) {
+    // No pending state yet - fetch once
     roomRef.once('value', snap => {
       const state = snap.val();
       if (state) syncFromState(state);
@@ -1283,6 +1296,8 @@ function pushState() {
   roomRef.set(state);
 }
 
+let lastSeekAt = 0;  // cooldown: don't seek within 6s of last seek
+
 function syncFromState(state) {
   isSyncing = true;
 
@@ -1290,9 +1305,12 @@ function syncFromState(state) {
     const lag = (Date.now() - state.updatedAt) / 1000;
     const targetTime = state.currentTime + lag;
     const dur = audio.duration;
+    const now = Date.now();
 
-    if (dur && Math.abs(audio.currentTime - targetTime) > 1.5) {
+    // Only seek if drift > 5s AND last seek was > 6s ago
+    if (dur && Math.abs(audio.currentTime - targetTime) > 5 && (now - lastSeekAt) > 6000) {
       audio.currentTime = Math.min(targetTime, dur);
+      lastSeekAt = now;
     }
 
     if (state.playing) {
@@ -1308,7 +1326,7 @@ function syncFromState(state) {
 
   if (state.trackIndex !== currentTrack) {
     loadTrack(state.trackIndex, false);
-    // Wait for canplay, with 3s timeout fallback
+    lastSeekAt = Date.now();  // reset cooldown on track change
     let fired = false;
     const onCanPlay = () => { fired = true; doSync(); };
     audio.addEventListener('canplay', onCanPlay, { once: true });
@@ -1408,8 +1426,9 @@ audio.addEventListener('timeupdate', () => {
   document.getElementById('progress-fill').style.width = pct + '%';
   document.getElementById('time-cur').textContent = fmt(audio.currentTime);
 
-  // Host pushes sync every 5 seconds
-  if (isHost && !isSyncing && Math.floor(audio.currentTime) % 5 === 0 &&
+  // Host pushes sync every 30 seconds for drift correction
+  if (isHost && !isSyncing && !audio.paused && audio.currentTime > 0.5 &&
+      Math.floor(audio.currentTime) % 30 === 0 &&
       Math.floor(audio.currentTime) !== lastSyncedTime) {
     lastSyncedTime = Math.floor(audio.currentTime);
     pushState();
@@ -1479,8 +1498,8 @@ function appendMessage(msg, isMobile) {
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
 
-  // Show unread dot if mobile chat is closed
-  if (!isMobile && !isSelf) {
+  // Show unread dot when mobile chat drawer is closed and message is from others
+  if (isMobile && !isSelf) {
     const drawer = document.getElementById('chat-drawer');
     if (!drawer.classList.contains('open')) {
       document.getElementById('chat-unread-dot').style.display = 'block';
