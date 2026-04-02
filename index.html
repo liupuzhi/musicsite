@@ -34,7 +34,7 @@ const ADMIN_PASSWORD = "xiaoranyu0807";
 <script>
 const PLAYLIST = [
   {
-    title: "蒲公英",
+    title: "蒲公英的约定",
     artist: "艺术家名",
     url: "https://pub-52c204b8090c426d8e7d1b37cd237c9b.r2.dev/%E8%92%B2%E5%85%AC%E8%8B%B1%E7%9A%84%E7%BA%A6%E5%AE%9Al.mp3",
     cover: ""
@@ -534,6 +534,305 @@ const PLAYLIST = [
     .cover-wrap { width: min(240px, 70vw); }
   }
 
+  /* Mobile playlist button */
+  .mobile-list-btn {
+    display: none;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 100px;
+    padding: 7px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+  }
+  .mobile-list-btn:hover { border-color: var(--gold-dim); color: var(--text); }
+  .mobile-list-btn svg { width: 14px; height: 14px; }
+  @media (max-width: 640px) { .mobile-list-btn { display: flex; } }
+
+  /* Mobile playlist drawer */
+  #mobile-drawer {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: none;
+  }
+  #mobile-drawer.open { display: block; }
+
+  .drawer-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+  }
+
+  .drawer-sheet {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-radius: 20px 20px 0 0;
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  #mobile-drawer.open .drawer-sheet { transform: translateY(0); }
+
+  .drawer-handle {
+    width: 36px; height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 14px auto 0;
+    flex-shrink: 0;
+  }
+
+  .drawer-header {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .drawer-title {
+    font-family: 'Lora', serif;
+    font-style: italic;
+    font-size: 1rem;
+    color: var(--gold);
+  }
+  .drawer-count {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+  }
+
+  .drawer-list {
+    overflow-y: auto;
+    flex: 1;
+    padding: 8px 0 24px;
+  }
+  .drawer-list::-webkit-scrollbar { display: none; }
+
+  .drawer-track {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-left: 2px solid transparent;
+  }
+  .drawer-track:active { background: rgba(200,169,110,0.08); }
+  .drawer-track.active { border-left-color: var(--gold); background: rgba(200,169,110,0.08); }
+  .drawer-track-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    width: 20px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .drawer-track.active .drawer-track-num { color: var(--gold); }
+  .drawer-track-info { flex: 1; min-width: 0; }
+  .drawer-track-name {
+    font-size: 0.9rem;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .drawer-track.active .drawer-track-name { color: var(--gold); }
+  .drawer-track-artist {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .drawer-playing-icon {
+    width: 16px; height: 16px;
+    flex-shrink: 0;
+    display: none;
+  }
+  .drawer-track.active .drawer-playing-icon { display: block; color: var(--gold); }
+
+  /* ══════════ CHAT ══════════ */
+  .chat-panel {
+    width: 240px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .chat-header {
+    padding: 20px 16px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .chat-title {
+    font-family: 'Lora', serif;
+    font-style: italic;
+    font-size: 0.95rem;
+    color: var(--gold);
+  }
+  .chat-ip-self {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+  }
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 12px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .chat-messages::-webkit-scrollbar { width: 3px; }
+  .chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .chat-msg {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .chat-msg-meta {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    color: var(--text-dim);
+    letter-spacing: 0.04em;
+  }
+  .chat-msg-meta.self-meta { text-align: right; color: var(--gold-dim); }
+  .chat-msg-bubble {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 0.82rem;
+    padding: 7px 10px;
+    border-radius: 10px 10px 10px 3px;
+    word-break: break-word;
+    max-width: 90%;
+    line-height: 1.4;
+  }
+  .chat-msg.self .chat-msg-bubble {
+    align-self: flex-end;
+    background: rgba(200,169,110,0.1);
+    border-color: var(--gold-dim);
+    border-radius: 10px 10px 3px 10px;
+  }
+  .chat-msg.self { align-items: flex-end; }
+  .chat-input-row {
+    padding: 10px 12px 14px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .chat-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Noto Serif SC', serif;
+    font-size: 0.8rem;
+    padding: 8px 10px;
+    border-radius: 8px;
+    outline: none;
+    transition: border-color 0.2s;
+    resize: none;
+    height: 36px;
+    line-height: 1.4;
+  }
+  .chat-input:focus { border-color: var(--gold-dim); }
+  .chat-send-btn {
+    background: var(--gold);
+    border: none;
+    border-radius: 8px;
+    color: var(--bg);
+    width: 36px;
+    height: 36px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.2s;
+  }
+  .chat-send-btn:hover { background: #d4b87a; }
+  .chat-send-btn svg { width: 15px; height: 15px; }
+  .chat-empty {
+    text-align: center;
+    color: var(--text-dim);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    margin-top: 20px;
+  }
+
+  /* Mobile chat button & drawer */
+  .mobile-chat-btn {
+    display: none;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 100px;
+    padding: 7px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .mobile-chat-btn svg { width: 14px; height: 14px; }
+  .chat-unread-dot {
+    position: absolute;
+    top: -3px; right: -3px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--gold);
+    display: none;
+  }
+  @media (max-width: 640px) {
+    .chat-panel { display: none; }
+    .mobile-chat-btn { display: flex; }
+    .mobile-btn-row { display: flex; gap: 10px; justify-content: center; }
+  }
+  .mobile-btn-row { display: contents; }
+
+  #chat-drawer {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: none;
+  }
+  #chat-drawer.open { display: block; }
+  #chat-drawer .drawer-sheet {
+    max-height: 80vh;
+    height: 80vh;
+  }
+  .chat-drawer-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
   /* Guest unlock overlay */
   #guest-unlock {
     position: fixed;
@@ -733,7 +1032,78 @@ const PLAYLIST = [
         <input type="range" id="volume" min="0" max="1" step="0.01" value="0.8" oninput="setVolume(this.value)">
       </div>
 
+      <!-- Mobile playlist & chat buttons (only visible on mobile) -->
+      <div class="mobile-btn-row">
+        <button class="mobile-list-btn" onclick="openDrawer()">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+          </svg>
+          播放列表
+        </button>
+        <button class="mobile-chat-btn" onclick="openChatDrawer()">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+          </svg>
+          聊天
+          <span class="chat-unread-dot" id="chat-unread-dot"></span>
+        </button>
+      </div>
+
     </div><!-- /main -->
+
+    <!-- Chat Panel (desktop) -->
+    <div class="chat-panel">
+      <div class="chat-header">
+        <div class="chat-title">聊天</div>
+        <div class="chat-ip-self" id="chat-ip-display">获取IP中…</div>
+      </div>
+      <div class="chat-messages" id="chat-messages">
+        <div class="chat-empty" id="chat-empty">还没有消息</div>
+      </div>
+      <div class="chat-input-row">
+        <input class="chat-input" id="chat-input" placeholder="说点什么…" maxlength="200" autocomplete="off">
+        <button class="chat-send-btn" onclick="sendMessage()">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Mobile Chat Drawer -->
+<div id="chat-drawer">
+  <div class="drawer-backdrop" onclick="closeChatDrawer()"></div>
+  <div class="drawer-sheet">
+    <div class="drawer-handle"></div>
+    <div class="drawer-header">
+      <div class="drawer-title">聊天</div>
+      <div class="chat-ip-self" id="chat-ip-display-mobile">获取IP中…</div>
+    </div>
+    <div class="chat-drawer-body">
+      <div class="chat-messages" id="chat-messages-mobile">
+        <div class="chat-empty" id="chat-empty-mobile">还没有消息</div>
+      </div>
+      <div class="chat-input-row">
+        <input class="chat-input" id="chat-input-mobile" placeholder="说点什么…" maxlength="200" autocomplete="off">
+        <button class="chat-send-btn" onclick="sendMessage(true)">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Mobile Playlist Drawer -->
+<div id="mobile-drawer">
+  <div class="drawer-backdrop" onclick="closeDrawer()"></div>
+  <div class="drawer-sheet">
+    <div class="drawer-handle"></div>
+    <div class="drawer-header">
+      <div class="drawer-title">播放列表</div>
+      <div class="drawer-count" id="drawer-count">0 首</div>
+    </div>
+    <div class="drawer-list" id="drawer-list"></div>
   </div>
 </div>
 
@@ -841,6 +1211,7 @@ function enterRoom(code, asHost) {
 
   renderPlaylist();
   setupSync();
+  setupChat();
 
   if (isHost) {
     loadTrack(0, false);
@@ -1063,6 +1434,119 @@ function fmt(s) {
 }
 
 // ════════════════════════════════════════
+//  Chat
+// ════════════════════════════════════════
+let myIP = '获取中…';
+let chatRef;
+
+async function fetchIP() {
+  try {
+    const r = await fetch('https://api.ipify.org?format=json');
+    const d = await r.json();
+    myIP = d.ip;
+    document.getElementById('chat-ip-display').textContent = myIP;
+    document.getElementById('chat-ip-display-mobile').textContent = myIP;
+  } catch { myIP = '未知IP'; }
+}
+
+function setupChat() {
+  chatRef = db.ref('rooms/' + roomCode + '/chat');
+  chatRef.on('child_added', snap => {
+    const msg = snap.val();
+    appendMessage(msg, false);
+    appendMessage(msg, true);
+  });
+}
+
+function appendMessage(msg, isMobile) {
+  const containerId = isMobile ? 'chat-messages-mobile' : 'chat-messages';
+  const emptyId = isMobile ? 'chat-empty-mobile' : 'chat-empty';
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  // Remove empty placeholder
+  const empty = document.getElementById(emptyId);
+  if (empty) empty.remove();
+
+  const isSelf = msg.ip === myIP;
+  const div = document.createElement('div');
+  div.className = 'chat-msg' + (isSelf ? ' self' : '');
+
+  const time = new Date(msg.ts).toLocaleTimeString('zh', { hour: '2-digit', minute: '2-digit' });
+  div.innerHTML = `
+    <div class="chat-msg-meta ${isSelf ? 'self-meta' : ''}">${msg.ip} · ${time}</div>
+    <div class="chat-msg-bubble">${escapeHtml(msg.text)}</div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+
+  // Show unread dot if mobile chat is closed
+  if (!isMobile && !isSelf) {
+    const drawer = document.getElementById('chat-drawer');
+    if (!drawer.classList.contains('open')) {
+      document.getElementById('chat-unread-dot').style.display = 'block';
+    }
+  }
+}
+
+function sendMessage(isMobile = false) {
+  const inputId = isMobile ? 'chat-input-mobile' : 'chat-input';
+  const input = document.getElementById(inputId);
+  const text = input.value.trim();
+  if (!text || !chatRef) return;
+  chatRef.push({ ip: myIP, text, ts: Date.now() });
+  input.value = '';
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function openChatDrawer() {
+  document.getElementById('chat-unread-dot').style.display = 'none';
+  document.getElementById('chat-drawer').classList.add('open');
+  setTimeout(() => {
+    const m = document.getElementById('chat-messages-mobile');
+    if (m) m.scrollTop = m.scrollHeight;
+    document.getElementById('chat-input-mobile').focus();
+  }, 350);
+}
+function closeChatDrawer() {
+  document.getElementById('chat-drawer').classList.remove('open');
+}
+
+// ════════════════════════════════════════
+//  Mobile Drawer
+// ════════════════════════════════════════
+function openDrawer() {
+  renderDrawer();
+  document.getElementById('mobile-drawer').classList.add('open');
+}
+function closeDrawer() {
+  document.getElementById('mobile-drawer').classList.remove('open');
+}
+function renderDrawer() {
+  const container = document.getElementById('drawer-list');
+  document.getElementById('drawer-count').textContent = PLAYLIST.length + ' 首';
+  container.innerHTML = '';
+  PLAYLIST.forEach((t, i) => {
+    const div = document.createElement('div');
+    const isActive = i === currentTrack;
+    div.className = 'drawer-track' + (isActive ? ' active' : '');
+    div.innerHTML = `
+      <div class="drawer-track-num">${isActive ? '▶' : i + 1}</div>
+      <div class="drawer-track-info">
+        <div class="drawer-track-name">${t.title}</div>
+        <div class="drawer-track-artist">${t.artist}</div>
+      </div>`;
+    if (isHost) div.onclick = () => { loadTrack(i, true); pushState(); closeDrawer(); };
+    container.appendChild(div);
+  });
+  // Scroll active track into view
+  const active = container.querySelector('.active');
+  if (active) active.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
+// ════════════════════════════════════════
 //  Playlist Render
 // ════════════════════════════════════════
 function renderPlaylist() {
@@ -1108,10 +1592,17 @@ document.getElementById('password-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') showPasswordAndCreate();
 });
 
+document.getElementById('chat-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') sendMessage(false);
+});
+document.getElementById('chat-input-mobile').addEventListener('keydown', e => {
+  if (e.key === 'Enter') sendMessage(true);
+});
+
 // ════════════════════════════════════════
 //  Boot
 // ════════════════════════════════════════
-window.addEventListener('load', initFirebase);
+window.addEventListener('load', () => { initFirebase(); fetchIP(); });
 </script>
 </body>
 </html>
