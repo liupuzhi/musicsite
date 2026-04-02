@@ -19,6 +19,11 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "731142337397",
   appId: "1:731142337397:web:7824a13696b039ffb1993c"
 };
+
+// ═══════════════════════════════════════════════
+// 管理员密码：改成你想要的密码
+// ═══════════════════════════════════════════════
+const ADMIN_PASSWORD = "xiaoranyu0807";
 </script>
 
 <!-- ═══════════════════════════════════════════════
@@ -29,7 +34,7 @@ const FIREBASE_CONFIG = {
 <script>
 const PLAYLIST = [
   {
-    title: "蒲公英的约定",
+    title: "蒲公英",
     artist: "艺术家名",
     url: "https://pub-52c204b8090c426d8e7d1b37cd237c9b.r2.dev/%E8%92%B2%E5%85%AC%E8%8B%B1%E7%9A%84%E7%BA%A6%E5%AE%9Al.mp3",
     cover: ""
@@ -631,9 +636,15 @@ const PLAYLIST = [
     <input class="join-input" id="room-input" maxlength="8"
            placeholder="输入暗号" autocomplete="off" spellcheck="false">
 
+    <div id="password-section" style="display:none">
+      <div class="join-label">管理员密码</div>
+      <input class="join-input" id="password-input" type="password"
+             placeholder="创建房间需要密码" autocomplete="off">
+    </div>
+
     <div class="btn-row">
       <button class="btn btn-secondary" onclick="joinRoom()">加入</button>
-      <button class="btn btn-primary" onclick="createRoom()">创建房间</button>
+      <button class="btn btn-primary" onclick="showPasswordAndCreate()">创建房间</button>
     </div>
   </div>
 </div>
@@ -766,6 +777,29 @@ function initFirebase() {
 function generateCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   return Array.from({length: 4}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+function showPasswordAndCreate() {
+  const section = document.getElementById('password-section');
+  const pwdInput = document.getElementById('password-input');
+  if (section.style.display === 'none') {
+    // First click: show password field
+    section.style.display = 'block';
+    pwdInput.focus();
+  } else {
+    // Second click: verify password
+    if (pwdInput.value === ADMIN_PASSWORD) {
+      createRoom();
+    } else {
+      pwdInput.value = '';
+      pwdInput.placeholder = '密码错误，请重试';
+      pwdInput.style.borderColor = 'var(--red)';
+      setTimeout(() => {
+        pwdInput.placeholder = '创建房间需要密码';
+        pwdInput.style.borderColor = '';
+      }, 2000);
+    }
+  }
 }
 
 function createRoom() {
@@ -1069,6 +1103,9 @@ document.addEventListener('keydown', e => {
 // Enter key in room input
 document.getElementById('room-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') joinRoom();
+});
+document.getElementById('password-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') showPasswordAndCreate();
 });
 
 // ════════════════════════════════════════
