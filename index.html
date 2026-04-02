@@ -820,8 +820,6 @@ let pendingState = null;  // store state received before user interaction
 
 function unlockGuest() {
   document.getElementById('guest-unlock').classList.remove('visible');
-  // Touch audio to unlock autoplay
-  audio.play().then(() => audio.pause()).catch(() => {});
   if (pendingState) {
     syncFromState(pendingState);
     pendingState = null;
@@ -872,29 +870,33 @@ function pushState() {
 function syncFromState(state) {
   isSyncing = true;
 
-  // Sync track
+  const doSync = () => {
+    // Compensate for network delay
+    const lag = (Date.now() - state.updatedAt) / 1000;
+    const targetTime = state.currentTime + lag;
+
+    // Only seek if drift > 1.5s
+    if (Math.abs(audio.currentTime - targetTime) > 1.5) {
+      audio.currentTime = Math.min(targetTime, audio.duration || targetTime);
+    }
+
+    if (state.playing) {
+      audio.play().catch(() => {});
+    } else {
+      audio.pause();
+    }
+
+    updatePlayUI(state.playing);
+    isSyncing = false;
+  };
+
+  // Sync track - if track changed, wait for canplay before seeking
   if (state.trackIndex !== currentTrack) {
     loadTrack(state.trackIndex, false);
+    audio.addEventListener('canplay', doSync, { once: true });
+  } else {
+    doSync();
   }
-
-  // Compensate for network delay
-  const lag = (Date.now() - state.updatedAt) / 1000;
-  const targetTime = state.currentTime + lag;
-
-  // Only seek if drift > 1.5s
-  if (Math.abs(audio.currentTime - targetTime) > 1.5) {
-    audio.currentTime = targetTime;
-  }
-
-  // Sync play/pause
-  if (state.playing && audio.paused) {
-    audio.play().catch(() => {});
-  } else if (!state.playing && !audio.paused) {
-    audio.pause();
-  }
-
-  updatePlayUI(!audio.paused);
-  isSyncing = false;
 }
 
 // ════════════════════════════════════════
