@@ -29,7 +29,7 @@ const FIREBASE_CONFIG = {
 <script>
 const PLAYLIST = [
   {
-    title: "歌曲名称1",
+    title: "发如雪",
     artist: "艺术家名",
     url: "https://pub-52c204b8090c426d8e7d1b37cd237c9b.r2.dev/%E8%92%B2%E5%85%AC%E8%8B%B1%E7%9A%84%E7%BA%A6%E5%AE%9Al.mp3",
     cover: ""
@@ -846,9 +846,10 @@ function setupSync() {
     document.getElementById('guest-unlock').classList.add('visible');
     roomRef.on('value', snap => {
       const state = snap.val();
+      console.log('[Guest] Firebase received:', state);
       if (!state) return;
       if (!guestUnlocked) {
-        pendingState = state;  // save for after unlock
+        pendingState = state;
       } else {
         syncFromState(state);
       }
@@ -867,12 +868,14 @@ function setupSync() {
 
 function pushState() {
   if (!isHost || !roomRef) return;
-  roomRef.set({
+  const state = {
     trackIndex: currentTrack,
     playing: !audio.paused,
     currentTime: audio.currentTime,
     updatedAt: Date.now()
-  });
+  };
+  console.log('[Host] Pushing state:', state);
+  roomRef.set(state);
 }
 
 function syncFromState(state) {
