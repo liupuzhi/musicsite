@@ -29,7 +29,7 @@ const FIREBASE_CONFIG = {
 <script>
 const PLAYLIST = [
   {
-    title: "发如雪",
+    title: "蒲公英的约定",
     artist: "艺术家名",
     url: "https://pub-52c204b8090c426d8e7d1b37cd237c9b.r2.dev/%E8%92%B2%E5%85%AC%E8%8B%B1%E7%9A%84%E7%BA%A6%E5%AE%9Al.mp3",
     cover: ""
@@ -739,7 +739,7 @@ const PLAYLIST = [
 // ════════════════════════════════════════
 let db, roomRef;
 let isHost = false;
-let currentTrack = 0;
+let currentTrack = -1;
 let roomCode = '';
 let isSyncing = false;  // prevent feedback loop
 let lastSyncedTime = 0;
