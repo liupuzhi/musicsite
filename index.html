@@ -816,13 +816,22 @@ function enterRoom(code, asHost) {
   }
 }
 
-let pendingState = null;  // store state received before user interaction
+let guestUnlocked = false;
+let pendingState = null;
 
 function unlockGuest() {
+  guestUnlocked = true;
   document.getElementById('guest-unlock').classList.remove('visible');
   if (pendingState) {
     syncFromState(pendingState);
     pendingState = null;
+  }
+  // Also re-fetch latest state in case Firebase already fired
+  if (roomRef) {
+    roomRef.once('value', snap => {
+      const state = snap.val();
+      if (state) syncFromState(state);
+    });
   }
 }
 
@@ -838,9 +847,8 @@ function setupSync() {
     roomRef.on('value', snap => {
       const state = snap.val();
       if (!state) return;
-      // If user hasn't interacted yet, store state for later
-      if (document.getElementById('guest-unlock').classList.contains('visible')) {
-        pendingState = state;
+      if (!guestUnlocked) {
+        pendingState = state;  // save for after unlock
       } else {
         syncFromState(state);
       }
@@ -871,17 +879,17 @@ function syncFromState(state) {
   isSyncing = true;
 
   const doSync = () => {
-    // Compensate for network delay
     const lag = (Date.now() - state.updatedAt) / 1000;
     const targetTime = state.currentTime + lag;
+    const dur = audio.duration;
 
-    // Only seek if drift > 1.5s
-    if (Math.abs(audio.currentTime - targetTime) > 1.5) {
-      audio.currentTime = Math.min(targetTime, audio.duration || targetTime);
+    if (dur && Math.abs(audio.currentTime - targetTime) > 1.5) {
+      audio.currentTime = Math.min(targetTime, dur);
     }
 
     if (state.playing) {
-      audio.play().catch(() => {});
+      const p = audio.play();
+      if (p) p.catch(e => console.warn('play blocked:', e));
     } else {
       audio.pause();
     }
@@ -890,10 +898,13 @@ function syncFromState(state) {
     isSyncing = false;
   };
 
-  // Sync track - if track changed, wait for canplay before seeking
   if (state.trackIndex !== currentTrack) {
     loadTrack(state.trackIndex, false);
-    audio.addEventListener('canplay', doSync, { once: true });
+    // Wait for canplay, with 3s timeout fallback
+    let fired = false;
+    const onCanPlay = () => { fired = true; doSync(); };
+    audio.addEventListener('canplay', onCanPlay, { once: true });
+    setTimeout(() => { if (!fired) { audio.removeEventListener('canplay', onCanPlay); doSync(); } }, 3000);
   } else {
     doSync();
   }
