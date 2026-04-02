@@ -582,7 +582,8 @@ const PLAYLIST = [
     transform: translateY(100%);
     transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
   }
-  #mobile-drawer.open .drawer-sheet { transform: translateY(0); }
+  #mobile-drawer.open .drawer-sheet,
+  #chat-drawer.open .drawer-sheet { transform: translateY(0); }
 
   .drawer-handle {
     width: 36px; height: 4px;
@@ -1138,6 +1139,7 @@ let currentTrack = -1;
 let roomCode = '';
 let isSyncing = false;  // prevent feedback loop
 let lastSyncedTime = 0;
+let serverTimeOffset = 0;
 
 const audio = document.getElementById('audio');
 
@@ -1258,7 +1260,9 @@ function unlockGuest() {
 // ════════════════════════════════════════
 function setupSync() {
   roomRef = db.ref('rooms/' + roomCode + '/state');
-
+  db.ref('.info/serverTimeOffset').on('value', snap => {
+    serverTimeOffset = snap.val() || 0;
+  });
   // Host pushes state; Guest listens
   if (!isHost) {
     document.getElementById('guest-unlock').classList.add('visible');
@@ -1290,7 +1294,7 @@ function pushState() {
     trackIndex: currentTrack,
     playing: !audio.paused,
     currentTime: audio.currentTime,
-    updatedAt: Date.now()
+    updatedAt: Date.now() + serverTimeOffset 
   };
   console.log('[Host] Pushing state:', state);
   roomRef.set(state);
@@ -1302,13 +1306,17 @@ function syncFromState(state) {
   isSyncing = true;
 
   const doSync = () => {
-    const lag = (Date.now() - state.updatedAt) / 1000;
-    const targetTime = state.currentTime + lag;
+    // 【修改这里】使用校准后的绝对时间来计算网络延迟
+    const nowMs = Date.now() + serverTimeOffset;
+    const lag = (nowMs - state.updatedAt) / 1000;
+    
+    // Math.max 确保如果由于极小波动导致 lag 为负数时，不会引起回退
+    const targetTime = state.currentTime + Math.max(0, lag); 
     const dur = audio.duration;
     const now = Date.now();
 
-    // Only seek if drift > 5s AND last seek was > 6s ago
-    if (dur && Math.abs(audio.currentTime - targetTime) > 5 && (now - lastSeekAt) > 6000) {
+    // 容忍度由 5s 改为 3s（可提高同步灵敏度）
+    if (dur && Math.abs(audio.currentTime - targetTime) > 3 && (now - lastSeekAt) > 6000) {
       audio.currentTime = Math.min(targetTime, dur);
       lastSeekAt = now;
     }
