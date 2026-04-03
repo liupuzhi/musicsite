@@ -1296,6 +1296,11 @@ let roomCode = '';
 let isSyncing = false;  // prevent feedback loop
 let lastSyncedTime = 0;
 let serverTimeOffset = 0;
+let guestStateRef;        // 用于操作客机状态的数据库引用
+let intentToPlay = false; // 主机想要播放的意图（点播放为true，点暂停为false）
+let hostReady = false;    // 主机的音频是否已加载完成
+let guestReady = true;    // 客机的音频是否已加载完成（默认true，容错单人听歌）
+let guestOnline = false;  // 客机是否在房间内
 
 const audio = document.getElementById('audio');
 
@@ -1416,11 +1421,30 @@ function unlockGuest() {
 // ════════════════════════════════════════
 function setupSync() {
   roomRef = db.ref('rooms/' + roomCode + '/state');
+  guestStateRef = db.ref('rooms/' + roomCode + '/guestState');
+
   db.ref('.info/serverTimeOffset').on('value', snap => {
     serverTimeOffset = snap.val() || 0;
   });
-  // Host pushes state; Guest listens
-  if (!isHost) {
+
+  if (isHost) {
+    // 主机监听客机的就绪状态
+    guestStateRef.on('value', snap => {
+      const state = snap.val();
+      if (state && state.online) {
+        guestOnline = true;
+        guestReady = state.isReady;
+      } else {
+        guestOnline = false;
+        guestReady = true; // 如果客机掉线或未加入，主机自己继续播
+      }
+      checkAndPlay();
+    });
+  } else {
+    // 客机连接时设置在线状态，断线时自动删除
+    guestStateRef.onDisconnect().remove();
+    guestStateRef.set({ online: true, isReady: false });
+
     document.getElementById('guest-unlock').classList.add('visible');
     roomRef.on('value', snap => {
       const state = snap.val();
@@ -1434,7 +1458,6 @@ function setupSync() {
     });
   }
 
-  // Both sides show connection status
   db.ref('.info/connected').on('value', snap => {
     const connected = snap.val();
     const dot = document.getElementById('sync-dot');
@@ -1442,6 +1465,48 @@ function setupSync() {
     dot.className = 'sync-dot' + (connected ? ' synced' : '');
     label.textContent = connected ? '已连接' : '断线中';
   });
+}
+
+// 客机汇报自己的加载进度
+function updateGuestReady(ready) {
+  if (!isHost && guestStateRef) {
+    guestStateRef.update({ isReady: ready });
+  }
+}
+
+// 主机统筹决策：要不要播？
+function checkAndPlay() {
+  if (!isHost) return;
+  // 只有当主机自己OK，且客机（如果在线的话）也OK时，才允许播放
+  const canPlayNow = hostReady && (guestOnline ? guestReady : true);
+
+  if (intentToPlay && canPlayNow) {
+    // 双方准备就绪，且想播放
+    if (audio.paused) {
+      audio.play().catch(() => {});
+      pushState(); 
+    }
+  } else {
+    // 某一方卡住了，或者主动点了暂停
+    if (!audio.paused) {
+      audio.pause();
+    }
+    pushState(); // 立即通知另一端一起停下等待
+  }
+}
+
+// 重写推流逻辑，不再依赖 audio.paused，而是依赖决策中心
+function pushState() {
+  if (!isHost || !roomRef) return;
+  const canPlayNow = hostReady && (guestOnline ? guestReady : true);
+  const state = {
+    trackIndex: currentTrack,
+    playing: intentToPlay && canPlayNow, // 只有意图是播且双方就绪才为 true
+    currentTime: audio.currentTime,
+    updatedAt: Date.now() + serverTimeOffset
+  };
+  console.log('[Host] Pushing state:', state);
+  roomRef.set(state);
 }
 
 function pushState() {
@@ -1508,6 +1573,14 @@ function loadTrack(index, autoPlay = true) {
   currentTrack = index;
   const t = PLAYLIST[index];
 
+  // 【核心修改】：切歌时重置双方就绪状态
+  if (isHost) {
+    hostReady = false;
+    intentToPlay = autoPlay;
+  } else {
+    updateGuestReady(false);
+  }
+
   audio.src = t.url;
   audio.load();
 
@@ -1517,7 +1590,6 @@ function loadTrack(index, autoPlay = true) {
   document.getElementById('time-cur').textContent = '0:00';
   document.getElementById('time-total').textContent = '0:00';
 
-  // Cover art
   const coverArea = document.getElementById('cover-area');
   if (t.cover) {
     coverArea.innerHTML = `<img src="${t.cover}" alt="${t.title}" onerror="this.parentElement.innerHTML='<div class=\\'cover-placeholder\\'><span class=\\'note-icon\\'>♪</span></div>'">`;
@@ -1525,29 +1597,20 @@ function loadTrack(index, autoPlay = true) {
     coverArea.innerHTML = '<div class="cover-placeholder"><span class="note-icon">♪</span></div>';
   }
 
-  // Highlight in playlist
   document.querySelectorAll('.track-item').forEach((el, i) => {
     el.classList.toggle('active', i === index);
   });
 
-  if (autoPlay) {
-    audio.play().then(() => {
-      updatePlayUI(true);
-      pushState();
-    }).catch(() => {});
-  }
+  // 主机推送切歌指令，客机收到后也会执行 loadTrack，然后乖乖加载等主机通知
+  if (isHost) pushState();
 }
 
 function togglePlay() {
   if (!isHost) return;
-  if (audio.paused) {
-    if (!audio.src) { loadTrack(0); return; }
-    audio.play().then(() => { updatePlayUI(true); pushState(); }).catch(() => {});
-  } else {
-    audio.pause();
-    updatePlayUI(false);
-    pushState();
-  }
+  if (!audio.src) { loadTrack(0); return; }
+  // 翻转播放意图，并交给决策中心处理
+  intentToPlay = !intentToPlay;
+  checkAndPlay();
 }
 
 function nextTrack() {
@@ -1584,6 +1647,18 @@ function updatePlayUI(playing) {
 }
 
 // ── Audio events ──
+// 当音频因为网络原因卡顿缓冲时触发
+audio.addEventListener('waiting', () => {
+  if (isHost) { hostReady = false; checkAndPlay(); }
+  else { updateGuestReady(false); }
+});
+
+// 当音频缓冲足够，可以流畅播放时触发 (双端握手成功信号)
+audio.addEventListener('canplay', () => {
+  if (isHost) { hostReady = true; checkAndPlay(); }
+  else { updateGuestReady(true); }
+});
+
 audio.addEventListener('timeupdate', () => {
   if (!audio.duration) return;
   const pct = (audio.currentTime / audio.duration) * 100;
