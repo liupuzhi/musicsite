@@ -690,6 +690,22 @@ const PLAYLIST = [
     .cover-wrap { width: min(240px, 70vw); }
   }
 
+/* 手机端房间徽章的基础样式（电脑端隐藏） */
+  .mobile-room-badge {
+    display: none;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--gold);
+    letter-spacing: 0.15em;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  
+  /* 在手机端尺寸下显示它 */
+  @media (max-width: 640px) {
+    .mobile-room-badge { display: block; }
+  }
+
   /* Mobile playlist button */
   .mobile-list-btn {
     display: none;
@@ -1153,6 +1169,7 @@ const PLAYLIST = [
 
       <!-- Track info -->
       <div class="track-info">
+        <div class="mobile-room-badge" id="mobile-room-badge">ROOM —</div>
         <div class="track-title" id="track-title">—</div>
         <div class="track-artist-main" id="track-artist">选择一首歌开始</div>
       </div>
@@ -1367,6 +1384,7 @@ function enterRoom(code, asHost) {
   document.getElementById('join-screen').classList.add('hidden');
   document.getElementById('player-screen').classList.add('visible');
   document.getElementById('room-display').textContent = 'ROOM · ' + code;
+  document.getElementById('mobile-room-badge').textContent = 'ROOM · ' + code;
 
   const badge = document.getElementById('role-badge');
   if (isHost) {
